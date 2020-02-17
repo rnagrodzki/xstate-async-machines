@@ -16,8 +16,12 @@ const dummyMachine = {
         },
         invoke: {
           machineID: "dummyMachine2"
+        },
+        after: {
+          3000: 'ready'
         }
-      }
+      },
+      ready: {}
     }
   },
   config: {
@@ -39,14 +43,14 @@ const dummyMachine2 = {
     initial: "idle",
     states: {
       idle: {
-        onEntry: [() => console.info("dummyMachine2 spawned")]
-        // activities: ["beeping"]
+        onEntry: [() => console.info("dummyMachine2 spawned")],
+        activities: ["beeping"]
       }
     }
   },
   config: {
     activities: {
-      beeping: () => {
+        beeping: () => {
         // Start the beeping activity
         const interval = setInterval(() => console.log("BEEP 2!"), 1000);
 
@@ -84,7 +88,7 @@ const mainMachine = {
         100: {
           actions: send("TEST_CHILD", { to: "dummyMachine1" })
         },
-        3000: "otherActivity"
+        5000: "otherActivity"
       }
     },
     otherActivity: {}

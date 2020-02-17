@@ -1,9 +1,10 @@
-import { Machine } from "xstate";
+import {Machine} from "xstate";
 
 export default () => ({
+  counter: 0,
   inventory: new Map(),
   service: null,
-  childService: null,
+  machines: new Map(),
   bridgeDefinition: {
     id: "bridgeMachine",
     initial: "init",
@@ -11,37 +12,48 @@ export default () => ({
       init: {}
     }
   },
-  build: function({ definition, config }) {
+  build: function ({definition, config}) {
     const bridgeMachine = Machine(this.bridgeDefinition);
-    const machineID = `${definition.id}Bridge`;
-
+    const machineID = `${definition.id}Bridge${this.counter}`;
+    this.counter += 1;
+    
+    let childService;
+    
+    const transitionClb = state => {
+      if (!state) return;
+      state.actions.forEach(action => {
+        console.log(action);
+        if (
+          action.type === "xstate.stop" &&
+          this.machines.get(action.activity.id)
+        ) {
+          console.warn(`Stopping machine: ${action.activity.id}`);
+          console.log(this.machines.get(action.activity.id));
+          this.machines.get(action.activity.id).stop();
+          this.machines.delete(action.activity.id);
+        }
+      });
+    };
+    
     bridgeMachine.onEntry.push({
       type: "external",
       exec: (...args) => {
         console.log("onEntry", args);
         if (this.service) {
-          this.service.onTransition(state => {
-            if (!state) return;
-            state.actions.forEach(action => {
-              if (
-                action.type === "xstate.stop" &&
-                action.activity.id === machineID
-              ) {
-                console.log("BINGO!!!!");
-                this.childService.stop();
-              }
-            });
-          });
-          this.childService = this.service.spawnMachine(
+          this.service.onTransition(transitionClb);
+          childService = this.service.spawnMachine(
             Machine(this.analyze(definition), config),
-            { autoForward: true }
+            {autoForward: true}
             // { sync: true }
             // { sync: true, autoForward: true }
           );
+          this.machines.set(machineID, childService);
+          childService.onTransition(transitionClb);
+          console.log(childService);
         }
       }
     });
-
+    
     return {
       id: machineID,
       src: bridgeMachine
